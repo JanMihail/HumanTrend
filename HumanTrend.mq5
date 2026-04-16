@@ -39,11 +39,19 @@ int OnCalculate(
     const long &volume[],
     const int &spread[]
 ) {
-    PrintFormat("prev_calculated = %d, rates_total = %d", prev_calculated, rates_total);
 
     for (int i = prev_calculated; i < rates_total; i++) {
-      //   Print(TimeToString(time[i]));
-        TrendBuffer[i] = open[i] < close[i] ? 1 : open[i] == close[i] ? 0 : -1;
+        // PrintFormat("prev_calculated = %G, rates_total = %G", prev_calculated, rates_total);
+        // PrintFormat("time = %G, open = %G, close = %G", time[i], open[i], close[i]);
+
+        if (i == 0) {
+            continue;
+        }
+
+        bool isDoji = open[i - 1] == close[i - 1];
+        bool isBull = !isDoji && open[i - 1] < close[i - 1];
+
+        TrendBuffer[i] = isDoji ? 0 : isBull ? 1 : -1;
     }
 
     //--- return value of prev_calculated for next call
