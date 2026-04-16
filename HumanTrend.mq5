@@ -58,6 +58,7 @@ int OnInit() {
 
 void OnDeinit(const int reason) {
     IndicatorRelease(maHandle1);
+    IndicatorRelease(maHandle2);
 
     Logger::info("Deinitialize complete! ReasonCode: " + IntegerToString(reason));
 }
