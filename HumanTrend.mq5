@@ -15,12 +15,12 @@
 
 #include "Logger.mqh"
 
-namespace HumanTrend {
-
 //--- input parameters
 input int MA1_PERIOD = 10;
 input int MA2_PERIOD = 20;
 input int MA_DELTA_PIPS = 200;
+
+namespace HumanTrend {
 
 //--- indicator buffers
 double TrendBuffer[];
@@ -85,7 +85,7 @@ int OnCalculate(
             continue;
         }
 
-        Logger::info(StringFormat("i = %d, time = %s, MA1: %G, MA2: %G", i, TimeToString(time[i]), maBuffer1[i - 1], maBuffer2[i - 1]));
+        // Logger::info(StringFormat("i = %d, time = %s, MA1: %G, MA2: %G", i, TimeToString(time[i]), maBuffer1[i - 1], maBuffer2[i - 1]));
 
         bool existTrend = MathAbs(maBuffer1[i - 1] - maBuffer2[i - 1]) > MA_DELTA_PIPS * _Point;
         bool isBull = existTrend && maBuffer1[i - 1] > maBuffer2[i - 1];
