@@ -85,12 +85,21 @@ int OnCalculate(
             continue;
         }
 
-        // Logger::info(StringFormat("i = %d, time = %s, MA1: %G, MA2: %G", i, TimeToString(time[i]), maBuffer1[i - 1], maBuffer2[i - 1]));
-
-        bool existTrend = MathAbs(maBuffer1[i - 1] - maBuffer2[i - 1]) > MA_DELTA_PIPS * _Point;
+        double deltaPips = MathAbs(maBuffer1[i - 1] - maBuffer2[i - 1]);
+        bool existTrend = deltaPips > MA_DELTA_PIPS * _Point;
         bool isBull = existTrend && maBuffer1[i - 1] > maBuffer2[i - 1];
 
-        TrendBuffer[i] = !existTrend ? 0 : isBull ? 1 : -1;
+        TrendBuffer[i - 1] = !existTrend ? 0 : isBull ? 1 : -1;
+
+        // Logger::info(StringFormat(
+        //     "i = %d, time[i]: %s, time[i - 1]: %s, MA1: %G, MA2: %G, delta: %.5f",
+        //     i,
+        //     TimeToString(time[i]),
+        //     TimeToString(time[i - 1]),
+        //     maBuffer1[i - 1],
+        //     maBuffer2[i - 1],
+        //     deltaPips
+        // ));
     }
 
     //--- return value of prev_calculated for next call
