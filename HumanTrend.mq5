@@ -15,6 +15,8 @@
 
 #include "Logger.mqh"
 
+namespace HumanTrend {
+
 //--- input parameters
 input int MA1_PERIOD = 10;
 input int MA2_PERIOD = 20;
@@ -109,4 +111,6 @@ void RecalcMAs(const int bufferSize) {
         Logger::error("Ошибка копирования буфера MA2");
         Logger::printLastError(__FUNCSIG__, __LINE__);
     }
+}
+
 }

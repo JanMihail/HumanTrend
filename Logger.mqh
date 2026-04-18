@@ -1,5 +1,7 @@
 //###<Indicators/HumanTrend/HumanTrend.mq5>
 
+namespace HumanTrend {
+
 class Logger {
 
 private:
@@ -28,3 +30,5 @@ public:
         log("ERROR", message);
     }
 };
+
+}
