@@ -2,7 +2,7 @@
 #property version "1.00"
 
 #property indicator_separate_window
-#property indicator_minimum - 1
+#property indicator_minimum -1
 #property indicator_maximum 1
 
 #property indicator_buffers 1
@@ -44,7 +44,7 @@ int OnInit() {
         Logger::printLastError(__FUNCSIG__, __LINE__);
         return (INIT_FAILED);
     }
-    // ChartIndicatorAdd(0, 0, maHandle1);
+    ChartIndicatorAdd(0, 0, maHandle1);
 
     //--- MA2
     maHandle2 = iMA(Symbol(), PERIOD_CURRENT, MA2_PERIOD, 0, MODE_EMA, PRICE_CLOSE);
@@ -53,7 +53,7 @@ int OnInit() {
         Logger::printLastError(__FUNCSIG__, __LINE__);
         return (INIT_FAILED);
     }
-    // ChartIndicatorAdd(0, 0, maHandle2);
+    ChartIndicatorAdd(0, 0, maHandle2);
 
     return (INIT_SUCCEEDED);
 }
@@ -81,24 +81,27 @@ int OnCalculate(
 
     for (int i = prev_calculated; i < rates_total; i++) {
 
-        if (i == 0) {
+        if (i < 2) {
             continue;
         }
 
-        double deltaPips = MathAbs(maBuffer1[i - 1] - maBuffer2[i - 1]);
-        bool existTrend = deltaPips > MA_DELTA_PIPS * _Point;
+        double delta1 = MathAbs(maBuffer1[i - 2] - maBuffer2[i - 2]);
+        double delta2 = MathAbs(maBuffer1[i - 1] - maBuffer2[i - 1]);
+
+        bool existTrend = delta2 > delta1 && delta2 > MA_DELTA_PIPS * _Point;
         bool isBull = existTrend && maBuffer1[i - 1] > maBuffer2[i - 1];
 
         TrendBuffer[i - 1] = !existTrend ? 0 : isBull ? 1 : -1;
 
         // Logger::info(StringFormat(
-        //     "i = %d, time[i]: %s, time[i - 1]: %s, MA1: %G, MA2: %G, delta: %.5f",
+        //     "i = %d, time[i]: %s, time[i - 1]: %s, MA1: %G, MA2: %G, delta1: %.5f, delta2: %.5f",
         //     i,
         //     TimeToString(time[i]),
         //     TimeToString(time[i - 1]),
         //     maBuffer1[i - 1],
         //     maBuffer2[i - 1],
-        //     deltaPips
+        //     delta1,
+        //     delta2
         // ));
     }
 
