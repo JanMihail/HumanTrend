@@ -5,7 +5,7 @@
 #property indicator_minimum -1
 #property indicator_maximum 1
 
-#property indicator_buffers 1
+#property indicator_buffers 2
 #property indicator_plots 1
 
 #property indicator_type1 DRAW_HISTOGRAM
@@ -13,17 +13,28 @@
 #property indicator_style1 STYLE_SOLID
 #property indicator_width1 2
 
+#include "ChartDrawer.mqh"
 #include "Logger.mqh"
 
 //--- input parameters
 input int MA1_PERIOD = 10;
 input int MA2_PERIOD = 20;
-input int MA_DELTA_PIPS = 200;
+input int MA_DELTA_FOR_START_TREND_PIPS = 200;
+input int MA_DELTA_FOR_FINISH_BY_TOUCH_PIPS = 200; // Максимальное расстояние между скользящими
+input int MA_DELTA_FOR_FINISH_SUZGENIE_PIPS = 200; // Размер сужения для закрытия тренда
 
 namespace HumanTrend {
 
+enum TrendStatus {
+    TREND_STATUS_FIND_START, // Поиск начала тренда
+    TREND_STATUS_FIND_FINISH // Поиск конца тренда
+};
+
+TrendStatus trendStatus;
+
 //--- indicator buffers
-double TrendBuffer[];
+double trendBuffer[];
+double deltaBuffer[];
 
 //--- MA1
 int maHandle1;
@@ -34,8 +45,12 @@ int maHandle2;
 double maBuffer2[];
 
 int OnInit() {
+
+    trendStatus = TREND_STATUS_FIND_START;
+
     //--- indicator buffers mapping
-    SetIndexBuffer(0, TrendBuffer, INDICATOR_DATA);
+    SetIndexBuffer(0, trendBuffer, INDICATOR_DATA);
+    SetIndexBuffer(1, deltaBuffer, INDICATOR_CALCULATIONS);
 
     //--- MA1
     maHandle1 = iMA(Symbol(), PERIOD_CURRENT, MA1_PERIOD, 0, MODE_EMA, PRICE_CLOSE);
@@ -77,32 +92,71 @@ int OnCalculate(
     const long &volume[],
     const int &spread[]
 ) {
+    if (prev_calculated == 0) {
+        return (rates_total);
+    }
+
     RecalcMAs(rates_total);
 
     for (int i = prev_calculated; i < rates_total; i++) {
 
-        if (i < 2) {
-            continue;
+        //--- Актуализация буфера
+        {
+            double delta1 = MathAbs(maBuffer1[i - 2] - maBuffer2[i - 2]);
+            double delta2 = MathAbs(maBuffer1[i - 1] - maBuffer2[i - 1]);
+            deltaBuffer[i - 1] = delta2 - delta1;
         }
 
+        if (trendStatus == TREND_STATUS_FIND_FINISH) {
+
+            double deltaSuzgenie = MathAbs(calcDeltaSuzgenie(i - 1));
+
+            if (deltaSuzgenie > MA_DELTA_FOR_FINISH_SUZGENIE_PIPS * _Point) {
+                trendBuffer[i] = 0;
+                trendStatus = TREND_STATUS_FIND_START;
+
+                ChartDrawer::drawSymbol(time[i], close[i], 231, clrRed, ENUM_ARROW_ANCHOR::ANCHOR_TOP);
+            } else {
+                bool isBull = maBuffer1[i - 1] > maBuffer2[i - 1];
+                trendBuffer[i - 1] = isBull ? 1 : -1;
+            }
+
+            break;
+        }
+
+        //--- Поиск начала тренда
         double delta1 = MathAbs(maBuffer1[i - 2] - maBuffer2[i - 2]);
         double delta2 = MathAbs(maBuffer1[i - 1] - maBuffer2[i - 1]);
 
-        bool existTrend = delta2 > delta1 && delta2 > MA_DELTA_PIPS * _Point;
+        bool existTrend = delta2 > delta1 && delta2 > MA_DELTA_FOR_START_TREND_PIPS * _Point;
         bool isBull = existTrend && maBuffer1[i - 1] > maBuffer2[i - 1];
 
-        TrendBuffer[i - 1] = !existTrend ? 0 : isBull ? 1 : -1;
+        trendBuffer[i - 1] = !existTrend ? 0 : isBull ? 1 : -1;
 
-        // Logger::info(StringFormat(
-        //     "i = %d, time[i]: %s, time[i - 1]: %s, MA1: %G, MA2: %G, delta1: %.5f, delta2: %.5f",
-        //     i,
-        //     TimeToString(time[i]),
-        //     TimeToString(time[i - 1]),
-        //     maBuffer1[i - 1],
-        //     maBuffer2[i - 1],
-        //     delta1,
-        //     delta2
-        // ));
+        if (existTrend) {
+            ChartDrawer::drawSymbol(time[i], close[i], 232, clrGreen, ENUM_ARROW_ANCHOR::ANCHOR_TOP);
+            trendStatus = TREND_STATUS_FIND_FINISH;
+        }
+    }
+
+    //--- Поиск конца тренда
+    if (trendStatus == TREND_STATUS_FIND_FINISH) {
+        int currentBarIdx = rates_total - 1;
+
+        if (trendBuffer[currentBarIdx - 1] == 0) {
+            Logger::error("Тренд в данном месте не может быть 0. БАГА!!!");
+        }
+
+        bool maDeltaForFinish = MathAbs(maBuffer1[currentBarIdx - 1] - maBuffer2[currentBarIdx - 1]) > MA_DELTA_FOR_FINISH_BY_TOUCH_PIPS * _Point;
+        bool priceTouchMa1 = (trendBuffer[currentBarIdx - 1] == 1 && maBuffer1[currentBarIdx - 1] > close[currentBarIdx]) ||
+                             (trendBuffer[currentBarIdx - 1] == -1 && maBuffer1[currentBarIdx - 1] < close[currentBarIdx]);
+
+        if (maDeltaForFinish && priceTouchMa1) {
+            trendBuffer[currentBarIdx] = 0;
+            trendStatus = TREND_STATUS_FIND_START;
+
+            ChartDrawer::drawSymbol(time[currentBarIdx], close[currentBarIdx], 231, clrRed, ENUM_ARROW_ANCHOR::ANCHOR_TOP);
+        }
     }
 
     //--- return value of prev_calculated for next call
@@ -123,6 +177,21 @@ void RecalcMAs(const int bufferSize) {
         Logger::error("Ошибка копирования буфера MA2");
         Logger::printLastError(__FUNCSIG__, __LINE__);
     }
+}
+
+double calcDeltaSuzgenie(int i) {
+    double res = 0.0;
+
+    while (true) {
+        if (deltaBuffer[i] > 0) {
+            break;
+        }
+
+        res += deltaBuffer[i];
+        i--;
+    }
+
+    return res;
 }
 
 }
