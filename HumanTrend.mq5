@@ -20,8 +20,8 @@
 input int MA1_PERIOD = 10;
 input int MA2_PERIOD = 20;
 input int MA_DELTA_FOR_START_TREND_PIPS = 200;
-input int MA_DELTA_FOR_FINISH_BY_TOUCH_PIPS = 200; // Максимальное расстояние между скользящими
-input int MA_DELTA_FOR_FINISH_SUZGENIE_PIPS = 200; // Размер сужения для закрытия тренда
+input int MA_DELTA_FOR_FINISH_BY_TOUCH_PIPS = 200;    // Максимальное расстояние между скользящими
+input double MA_DELTA_FOR_FINISH_SUZGENIE_KOEF = 0.5; // Коэффициент сужения больше которого закрытие тренда
 
 namespace HumanTrend {
 
@@ -34,7 +34,7 @@ TrendStatus trendStatus;
 
 //--- indicator buffers
 double trendBuffer[];
-double deltaBuffer[];
+double deltaMax; // Максимальное расстояние между скользящими в моменте
 
 //--- MA1
 int maHandle1;
@@ -50,7 +50,7 @@ int OnInit() {
 
     //--- indicator buffers mapping
     SetIndexBuffer(0, trendBuffer, INDICATOR_DATA);
-    SetIndexBuffer(1, deltaBuffer, INDICATOR_CALCULATIONS);
+    deltaMax = 0.0;
 
     //--- MA1
     maHandle1 = iMA(Symbol(), PERIOD_CURRENT, MA1_PERIOD, 0, MODE_EMA, PRICE_CLOSE);
@@ -96,26 +96,25 @@ int OnCalculate(
         return (rates_total);
     }
 
-    RecalcMAs(rates_total);
+    //--- Пересчитываем индикаторы MA только при формировании новой свечи
+    if (prev_calculated < rates_total) {
+        RecalcMAs(rates_total);
+    }
 
     for (int i = prev_calculated; i < rates_total; i++) {
-
-        //--- Актуализация буфера
-        {
-            double delta1 = MathAbs(maBuffer1[i - 2] - maBuffer2[i - 2]);
-            double delta2 = MathAbs(maBuffer1[i - 1] - maBuffer2[i - 1]);
-            deltaBuffer[i - 1] = delta2 - delta1;
-        }
-
         if (trendStatus == TREND_STATUS_FIND_FINISH) {
 
-            double deltaSuzgenie = MathAbs(calcDeltaSuzgenie(i - 1));
+            //---Актуализация deltaMax
+            double delta = MathAbs(maBuffer1[i - 1] - maBuffer2[i - 1]);
+            deltaMax = MathMax(delta, deltaMax);
 
-            if (deltaSuzgenie > MA_DELTA_FOR_FINISH_SUZGENIE_PIPS * _Point) {
+            double suzgenieKoef = 1 - (delta / deltaMax);
+
+            if (suzgenieKoef > MA_DELTA_FOR_FINISH_SUZGENIE_KOEF) {
                 trendBuffer[i] = 0;
                 trendStatus = TREND_STATUS_FIND_START;
 
-                ChartDrawer::drawSymbol(time[i], close[i], 231, clrRed, ENUM_ARROW_ANCHOR::ANCHOR_TOP);
+                ChartDrawer::drawRightPriceLabel(time[i], close[i], clrRed, 2, false);
             } else {
                 bool isBull = maBuffer1[i - 1] > maBuffer2[i - 1];
                 trendBuffer[i - 1] = isBull ? 1 : -1;
@@ -134,8 +133,10 @@ int OnCalculate(
         trendBuffer[i - 1] = !existTrend ? 0 : isBull ? 1 : -1;
 
         if (existTrend) {
-            ChartDrawer::drawSymbol(time[i], close[i], 232, clrGreen, ENUM_ARROW_ANCHOR::ANCHOR_TOP);
             trendStatus = TREND_STATUS_FIND_FINISH;
+            deltaMax = delta2;
+
+            ChartDrawer::drawLeftPriceLabel(time[i], close[i], clrGreen, 2, false);
         }
     }
 
@@ -155,7 +156,7 @@ int OnCalculate(
             trendBuffer[currentBarIdx] = 0;
             trendStatus = TREND_STATUS_FIND_START;
 
-            ChartDrawer::drawSymbol(time[currentBarIdx], close[currentBarIdx], 231, clrRed, ENUM_ARROW_ANCHOR::ANCHOR_TOP);
+            ChartDrawer::drawRightPriceLabel(time[currentBarIdx], close[currentBarIdx], clrRed, 2, false);
         }
     }
 
@@ -177,21 +178,6 @@ void RecalcMAs(const int bufferSize) {
         Logger::error("Ошибка копирования буфера MA2");
         Logger::printLastError(__FUNCSIG__, __LINE__);
     }
-}
-
-double calcDeltaSuzgenie(int i) {
-    double res = 0.0;
-
-    while (true) {
-        if (deltaBuffer[i] > 0) {
-            break;
-        }
-
-        res += deltaBuffer[i];
-        i--;
-    }
-
-    return res;
 }
 
 }

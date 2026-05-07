@@ -35,6 +35,60 @@ public:
         return objId;
     }
 
+    static string drawLeftPriceLabel(datetime x, double y, color vColor, int width, bool onTheBackOrder) {
+        string objId = UUID::randomUuid();
+
+        if (!ObjectCreate(0, objId, OBJ_ARROW_LEFT_PRICE, 0, x, y)) {
+            Logger::printLastError(__FUNCSIG__, __LINE__);
+            return "";
+        }
+
+        if (!ObjectSetInteger(0, objId, OBJPROP_COLOR, vColor)) {
+            Logger::printLastError(__FUNCSIG__, __LINE__);
+            return "";
+        }
+
+        if (!ObjectSetInteger(0, objId, OBJPROP_WIDTH, width)) {
+            Logger::printLastError(__FUNCSIG__, __LINE__);
+            return "";
+        }
+
+        if (!ObjectSetInteger(0, objId, OBJPROP_BACK, onTheBackOrder)) {
+            Logger::printLastError(__FUNCSIG__, __LINE__);
+            return "";
+        }
+
+        ChartRedraw();
+        return objId;
+    }
+
+    static string drawRightPriceLabel(datetime x, double y, color vColor, int width, bool onTheBackOrder) {
+        string objId = UUID::randomUuid();
+
+        if (!ObjectCreate(0, objId, OBJ_ARROW_RIGHT_PRICE, 0, x, y)) {
+            Logger::printLastError(__FUNCSIG__, __LINE__);
+            return "";
+        }
+
+        if (!ObjectSetInteger(0, objId, OBJPROP_COLOR, vColor)) {
+            Logger::printLastError(__FUNCSIG__, __LINE__);
+            return "";
+        }
+
+        if (!ObjectSetInteger(0, objId, OBJPROP_WIDTH, width)) {
+            Logger::printLastError(__FUNCSIG__, __LINE__);
+            return "";
+        }
+
+        if (!ObjectSetInteger(0, objId, OBJPROP_BACK, onTheBackOrder)) {
+            Logger::printLastError(__FUNCSIG__, __LINE__);
+            return "";
+        }
+
+        ChartRedraw();
+        return objId;
+    }
+
     static string drawLine(datetime x1, double y1, datetime x2, double y2, color vColor, int width) {
         return drawLine(x1, y1, x2, y2, vColor, width, STYLE_SOLID, false, false);
     }
