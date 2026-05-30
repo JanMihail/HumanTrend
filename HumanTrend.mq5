@@ -116,8 +116,8 @@ int OnCalculate(
 
                 ChartDrawer::drawRightPriceLabel(time[i], close[i], clrRed, 2, false);
             } else {
-                bool isBull = maBuffer1[i - 1] > maBuffer2[i - 1];
-                trendBuffer[i - 1] = isBull ? 1 : -1;
+                trendBuffer[i - 1] = trendBuffer[i - 2];
+                trendBuffer[i] = trendBuffer[i - 1];
             }
 
             break;
@@ -157,6 +157,8 @@ int OnCalculate(
             trendStatus = TREND_STATUS_FIND_START;
 
             ChartDrawer::drawRightPriceLabel(time[currentBarIdx], close[currentBarIdx], clrRed, 2, false);
+        } else {
+            trendBuffer[currentBarIdx] = trendBuffer[currentBarIdx - 1];
         }
     }
 
